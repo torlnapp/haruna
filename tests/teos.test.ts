@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { encode } from '@msgpack/msgpack';
 import { generateBaseTEOSHash, verifySignature } from '../src/lib';
-import { createTEOS, extractTEOS } from '../src/main';
+import { createMlsTEOS, createPskTEOS, extractTEOS } from '../src/main';
 import type { AAD, TEOS } from '../src/types/teos';
 
 const aad: AAD = {
@@ -52,8 +52,7 @@ describe('TEOS flows', () => {
       nested: { active: true },
     };
 
-    const teos = (await createTEOS(
-      'psk',
+    const teos = (await createPskTEOS(
       aad,
       aesKey,
       senderKeyPair,
@@ -95,8 +94,7 @@ describe('TEOS flows', () => {
   test('createTEOS (mls) produces MLS envelope and extractTEOS succeeds', async () => {
     const original = { status: 'ok', items: [1, 2, 3] };
 
-    const teos = await createTEOS(
-      'mls',
+    const teos = await createMlsTEOS(
       { ...aad, channelId: null },
       aesKey,
       senderKeyPair,
@@ -126,8 +124,7 @@ describe('TEOS flows', () => {
 
   test('extractTEOS rejects tampered signatures', async () => {
     const original = { compromised: true };
-    const teos = await createTEOS(
-      'psk',
+    const teos = await createPskTEOS(
       aad,
       aesKey,
       senderKeyPair,

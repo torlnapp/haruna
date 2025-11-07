@@ -13,33 +13,16 @@ import type {
   EnvelopeAuth,
   MLS_TEOS,
   MLSEnvelope,
-  Mode,
   PSK_TEOS,
   PSKEnvelope,
   TEOS,
 } from './types/teos';
 
-export async function createTEOS(
-  mode: 'psk',
+async function createBaseTEOS(
   aad: AAD,
   aesKey: CryptoKey,
-  senderKeyPair: CryptoKeyPair,
   data: ArrayBuffer,
-): Promise<PSK_TEOS>;
-export async function createTEOS(
-  mode: 'mls',
-  aad: AAD,
-  aesKey: CryptoKey,
-  senderKeyPair: CryptoKeyPair,
-  data: ArrayBuffer,
-): Promise<MLS_TEOS>;
-export async function createTEOS(
-  mode: Mode,
-  aad: AAD,
-  aesKey: CryptoKey,
-  senderKeyPair: CryptoKeyPair,
-  data: ArrayBuffer,
-): Promise<TEOS> {
+): Promise<BaseTEOS> {
   const nonce = generateNonce();
   const payload = await crypto.subtle.encrypt(
     {
@@ -61,34 +44,58 @@ export async function createTEOS(
     ciphertext,
   };
 
-  const hash = await generateBaseTEOSHash(baseResult);
+  return baseResult;
+}
+
+export async function createPskTEOS(
+  aad: AAD,
+  aesKey: CryptoKey,
+  senderKeyPair: CryptoKeyPair,
+  data: ArrayBuffer,
+): Promise<PSK_TEOS> {
+  const base = await createBaseTEOS(aad, aesKey, data);
+  const hash = await generateBaseTEOSHash(base);
   const auth: EnvelopeAuth = {
     publicKey: await crypto.subtle.exportKey('jwk', senderKeyPair.publicKey),
     signature: await generateSignature(senderKeyPair.privateKey, hash.buffer),
   };
 
-  if (mode === 'psk') {
-    const envelope: PSKEnvelope = {
-      suite: 'PSK+AES-256-GCM',
-      auth,
-      pskId: 'your-psk-id',
-    };
-    return {
-      ...baseResult,
-      mode: 'psk',
-      envelope,
-    };
-  } else {
-    const envelope: MLSEnvelope = {
-      suite: 'MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519',
-      auth,
-    };
-    return {
-      ...baseResult,
-      mode: 'mls',
-      envelope,
-    };
-  }
+  const envelope: PSKEnvelope = {
+    suite: 'PSK+AES-256-GCM',
+    auth,
+    pskId: 'your-psk-id',
+  };
+
+  return {
+    ...base,
+    mode: 'psk',
+    envelope,
+  };
+}
+
+export async function createMlsTEOS(
+  aad: AAD,
+  aesKey: CryptoKey,
+  senderKeyPair: CryptoKeyPair,
+  data: ArrayBuffer,
+): Promise<MLS_TEOS> {
+  const base = await createBaseTEOS(aad, aesKey, data);
+  const hash = await generateBaseTEOSHash(base);
+  const auth: EnvelopeAuth = {
+    publicKey: await crypto.subtle.exportKey('jwk', senderKeyPair.publicKey),
+    signature: await generateSignature(senderKeyPair.privateKey, hash.buffer),
+  };
+
+  const envelope: MLSEnvelope = {
+    suite: 'MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519',
+    auth,
+  };
+
+  return {
+    ...base,
+    mode: 'mls',
+    envelope,
+  };
 }
 
 export async function extractTEOS<T>(
