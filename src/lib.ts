@@ -1,6 +1,7 @@
 import { decode, encode } from '@msgpack/msgpack';
 import canonicalize from 'canonicalize';
 import packageJson from '../package.json';
+import type { TEOSDto } from './types/dto';
 import type { BaseTEOS, TEOS } from './types/teos';
 
 export const version = packageJson.version;
@@ -13,20 +14,21 @@ export function generateNonce(): Uint8Array<ArrayBuffer> {
 }
 
 export function processCiphertext(payload: ArrayBuffer) {
-  const payloadArray = new Uint8Array(payload);
+  const payloadUint8 = new Uint8Array(payload);
   const tagLength = 16;
-  const ciphertext = payloadArray.slice(0, payloadArray.length - tagLength);
-  const tag = payloadArray.slice(payloadArray.length - tagLength);
+  const ciphertext = payloadUint8.slice(0, payloadUint8.length - tagLength);
+  const tag = payloadUint8.slice(payloadUint8.length - tagLength);
 
   return { ciphertext, tag };
 }
 
-export async function generateSignature(key: CryptoKey, data: ArrayBuffer) {
+export async function generateSignature(
+  privateKey: CryptoKey,
+  data: ArrayBuffer,
+) {
   const signature = await crypto.subtle.sign(
-    {
-      name: 'Ed25519',
-    },
-    key,
+    { name: 'Ed25519' },
+    privateKey,
     data,
   );
 
@@ -34,18 +36,19 @@ export async function generateSignature(key: CryptoKey, data: ArrayBuffer) {
 }
 
 export async function verifySignature(
-  key: CryptoKey,
+  publicKey: CryptoKey,
   data: ArrayBuffer,
-  signature: ArrayBuffer,
+  signature: BufferSource,
 ) {
-  return crypto.subtle.verify(
-    {
-      name: 'Ed25519',
-    },
-    key,
-    signature,
-    data,
-  );
+  if (signature.byteLength !== 64) {
+    throw new Error(
+      'Invalid signature length. Expected 64 bytes. Got ' +
+        signature.byteLength +
+        ' bytes.',
+    );
+  }
+
+  return crypto.subtle.verify({ name: 'Ed25519' }, publicKey, signature, data);
 }
 
 export async function generateBaseTEOSHash(payload: TEOS | BaseTEOS) {
@@ -91,20 +94,13 @@ export function deserializeTEOS(buffer: ArrayBuffer): TEOS {
   throw new Error('Invalid TEOS format');
 }
 
-export async function verifyTEOS(teos: TEOS): Promise<boolean> {
-  const hash = await generateBaseTEOSHash(teos);
-
-  const isSignatureValid = await verifySignature(
-    await crypto.subtle.importKey(
-      'jwk',
-      teos.envelope.auth.publicKey,
-      'Ed25519',
-      false,
-      ['verify'],
-    ),
-    hash.buffer,
-    teos.envelope.auth.signature.buffer,
-  );
-
-  return isSignatureValid;
+export function getTEOSDto(teos: TEOS): TEOSDto {
+  return {
+    type: 'torln.teos.dto.v1',
+    id: teos.aad.objectId,
+    mode: teos.mode,
+    ciphersuite: teos.envelope.suite,
+    blob: serializeTEOS(teos),
+    timestamp: new Date(teos.aad.timestamp),
+  };
 }

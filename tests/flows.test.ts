@@ -1,47 +1,23 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { encode } from '@msgpack/msgpack';
 import { generateBaseTEOSHash, verifySignature } from '../src/lib';
-import { createMlsTEOS, createPskTEOS, extractTEOS } from '../src/main';
-import type { AAD, TEOS } from '../src/types/teos';
-
-const aad: AAD = {
-  groupId: 'group-123',
-  epochId: 42,
-  senderClientId: 'client-7',
-  messageSequence: 3,
-  timestamp: Date.now(),
-  objectId: 'object-abc',
-  channelId: 'channel-1',
-};
+import {
+  createMlsTEOS,
+  createPskTEOS,
+  extractTEOS,
+  verifyTEOS,
+} from '../src/main';
+import type { PSK_TEOS } from '../src/types/teos';
+import {
+  defaultAAD as aad,
+  createCryptoContext,
+  encodePayload,
+} from './test-utils';
 
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
 
-const encodePayload = (value: unknown): ArrayBuffer => {
-  const encoded = new Uint8Array(encode(value));
-  return encoded.buffer.slice(
-    encoded.byteOffset,
-    encoded.byteOffset + encoded.byteLength,
-  );
-};
-
 beforeAll(async () => {
-  aesKey = await crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt'],
-  );
-
-  const ed25519Key = await crypto.subtle.generateKey('Ed25519', true, [
-    'sign',
-    'verify',
-  ]);
-
-  if ('privateKey' in ed25519Key && 'publicKey' in ed25519Key) {
-    senderKeyPair = ed25519Key;
-  } else {
-    throw new Error('Failed to generate Ed25519 key pair');
-  }
+  ({ aesKey, senderKeyPair } = await createCryptoContext());
 });
 
 describe('TEOS flows', () => {
@@ -52,12 +28,12 @@ describe('TEOS flows', () => {
       nested: { active: true },
     };
 
-    const teos = (await createPskTEOS(
+    const teos = await createPskTEOS(
       aad,
       aesKey,
       senderKeyPair,
       encodePayload(original),
-    )) as TEOS;
+    );
 
     const hash = await generateBaseTEOSHash(teos);
     const directValid = await crypto.subtle.verify(
@@ -122,18 +98,53 @@ describe('TEOS flows', () => {
     expect(recovered).toEqual(original);
   });
 
-  test('extractTEOS rejects tampered signatures', async () => {
-    const original = { compromised: true };
+  test('verifyTEOS reports valid and invalid signatures', async () => {
     const teos = await createPskTEOS(
       aad,
       aesKey,
       senderKeyPair,
-      encodePayload(original),
+      encodePayload({ payload: 'data' }),
     );
 
-    const tamperedSignature = teos.envelope.auth.signature.slice(1, -1);
+    await expect(verifyTEOS(teos)).resolves.toBe(true);
 
-    const tampered = {
+    const tamperedSignature = new Uint8Array(teos.envelope.auth.signature);
+    const firstByte = tamperedSignature.at(0);
+    if (firstByte === undefined) {
+      throw new Error('Signature unexpectedly empty');
+    }
+    tamperedSignature[0] = firstByte ^ 0xff;
+
+    const tamperedTeos: PSK_TEOS = {
+      ...teos,
+      envelope: {
+        ...teos.envelope,
+        auth: {
+          ...teos.envelope.auth,
+          signature: tamperedSignature,
+        },
+      },
+    };
+
+    await expect(verifyTEOS(tamperedTeos)).resolves.toBe(false);
+  });
+
+  test('extractTEOS rejects tampered signatures', async () => {
+    const teos = await createPskTEOS(
+      aad,
+      aesKey,
+      senderKeyPair,
+      encodePayload({ compromised: true }),
+    );
+
+    const tamperedSignature = new Uint8Array(teos.envelope.auth.signature);
+    const firstByte = tamperedSignature.at(0);
+    if (firstByte === undefined) {
+      throw new Error('Signature unexpectedly empty');
+    }
+    tamperedSignature[0] = firstByte ^ 0xff;
+
+    const tampered: PSK_TEOS = {
       ...teos,
       envelope: {
         ...teos.envelope,
@@ -145,7 +156,7 @@ describe('TEOS flows', () => {
     };
 
     await expect(
-      extractTEOS<typeof original>(tampered, aesKey, senderKeyPair.publicKey),
+      extractTEOS(tampered, aesKey, senderKeyPair.publicKey),
     ).rejects.toThrow('Invalid TEOS signature');
   });
 });

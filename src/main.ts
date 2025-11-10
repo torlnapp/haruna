@@ -1,5 +1,6 @@
 import { decode } from '@msgpack/msgpack';
 import {
+  deserializeTEOS,
   generateBaseTEOSHash,
   generateNonce,
   generateSignature,
@@ -66,11 +67,18 @@ export async function createPskTEOS(
     pskId: 'your-psk-id',
   };
 
-  return {
+  const teos: PSK_TEOS = {
     ...base,
     mode: 'psk',
     envelope,
   };
+
+  const isValid = await verifyTEOS(teos);
+  if (!isValid) {
+    throw new Error('Generated PSK TEOS signature is invalid');
+  }
+
+  return teos;
 }
 
 export async function createMlsTEOS(
@@ -91,11 +99,18 @@ export async function createMlsTEOS(
     auth,
   };
 
-  return {
+  const teos: MLS_TEOS = {
     ...base,
     mode: 'mls',
     envelope,
   };
+
+  const isValid = await verifyTEOS(teos);
+  if (!isValid) {
+    throw new Error('Generated MLS TEOS signature is invalid');
+  }
+
+  return teos;
 }
 
 export async function extractTEOS<T>(
@@ -104,7 +119,7 @@ export async function extractTEOS<T>(
   publicKey: CryptoKey,
 ): Promise<T> {
   if (payload instanceof ArrayBuffer) {
-    payload = decode(payload) as TEOS;
+    payload = deserializeTEOS(payload);
   }
 
   const hash = await generateBaseTEOSHash(payload);
@@ -127,4 +142,23 @@ export async function extractTEOS<T>(
   );
 
   return decode(result) as T;
+}
+
+export async function verifyTEOS(teos: TEOS): Promise<boolean> {
+  const hash = await generateBaseTEOSHash(teos);
+  const publicKey = await crypto.subtle.importKey(
+    'jwk',
+    teos.envelope.auth.publicKey,
+    { name: 'Ed25519' },
+    false,
+    ['verify'],
+  );
+
+  const isSignatureValid = await verifySignature(
+    publicKey,
+    hash.buffer,
+    teos.envelope.auth.signature,
+  );
+
+  return isSignatureValid;
 }

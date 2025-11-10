@@ -31,11 +31,11 @@ export interface MLS_TEOS extends BaseTEOS {
 export interface AAD {
   groupId: string;
   channelId?: string | null;
+  objectId: string;
   epochId: number;
   senderClientId: string;
   messageSequence: number;
   timestamp: number;
-  objectId: string;
 }
 
 export type Envelope = PSKEnvelope | MLSEnvelope;
@@ -46,7 +46,7 @@ export interface EnvelopeAuth {
 }
 
 export interface PSKEnvelope {
-  suite?: string | null;
+  suite: string;
   auth: EnvelopeAuth;
   pskId: string;
   expiresAt?: number | null;
@@ -54,6 +54,6 @@ export interface PSKEnvelope {
 }
 
 export interface MLSEnvelope {
-  suite?: string | null;
+  suite: string;
   auth: EnvelopeAuth;
 }

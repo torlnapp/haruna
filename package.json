@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "bun test && tsdown",
+    "dev": "tsdown --watch",
+    "build": "bun run lint && bun test && tsdown",
+    "lint": "biome check --fix",
     "repomix": "repomix"
   },
   "devDependencies": {

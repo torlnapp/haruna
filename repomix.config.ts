@@ -4,7 +4,7 @@ export default defineConfig({
   output: {
     filePath: 'teos.repomix.xml',
     style: 'xml',
-    compress: true,
+    compress: false,
     removeEmptyLines: true,
   },
   ignore: {
