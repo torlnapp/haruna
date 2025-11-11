@@ -3,6 +3,7 @@ import canonicalize from 'canonicalize';
 import packageJson from '../package.json';
 import type { TEOSDto } from './types/dto';
 import type { BaseTEOS, TEOS } from './types/teos';
+import { convertToTightUint8Arrays } from './utils';
 
 export const version = packageJson.version;
 
@@ -38,11 +39,11 @@ export async function generateSignature(
 export async function verifySignature(
   publicKey: CryptoKey,
   data: ArrayBuffer,
-  signature: BufferSource,
+  signature: ArrayBuffer,
 ) {
   if (signature.byteLength !== 64) {
     throw new Error(
-      'Invalid signature length. Expected 64 bytes. Got ' +
+      '[TEOS] Invalid signature length. Expected 64 bytes. Got ' +
         signature.byteLength +
         ' bytes.',
     );
@@ -64,7 +65,7 @@ export async function generateBaseTEOSHash(payload: TEOS | BaseTEOS) {
 
   const canonicalized = canonicalize(data);
   if (!canonicalized) {
-    throw new Error('Failed to canonicalize TEOS payload');
+    throw new Error('[TEOS] Failed to canonicalize TEOS payload');
   }
 
   const buffer = await crypto.subtle.digest(
@@ -82,7 +83,7 @@ export function serializeTEOS(teos: TEOS): Uint8Array<ArrayBuffer> {
 }
 
 export function deserializeTEOS(buffer: ArrayBuffer): TEOS {
-  const data = decode(buffer);
+  const data = convertToTightUint8Arrays(decode(buffer));
   if (
     typeof data === 'object' &&
     data !== null &&
@@ -91,7 +92,7 @@ export function deserializeTEOS(buffer: ArrayBuffer): TEOS {
   ) {
     return data as TEOS;
   }
-  throw new Error('Invalid TEOS format');
+  throw new Error('[TEOS] Invalid TEOS format');
 }
 
 export function getTEOSDto(teos: TEOS): TEOSDto {

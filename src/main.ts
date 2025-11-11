@@ -75,7 +75,7 @@ export async function createPskTEOS(
 
   const isValid = await verifyTEOS(teos);
   if (!isValid) {
-    throw new Error('Generated PSK TEOS signature is invalid');
+    throw new Error('[TEOS] Generated PSK TEOS signature is invalid');
   }
 
   return teos;
@@ -107,7 +107,7 @@ export async function createMlsTEOS(
 
   const isValid = await verifyTEOS(teos);
   if (!isValid) {
-    throw new Error('Generated MLS TEOS signature is invalid');
+    throw new Error('[TEOS] Generated MLS TEOS signature is invalid');
   }
 
   return teos;
@@ -129,7 +129,7 @@ export async function extractTEOS<T>(
     payload.envelope.auth.signature.buffer,
   );
   if (!isValid) {
-    throw new Error('Invalid TEOS signature');
+    throw new Error('[TEOS] Invalid TEOS signature');
   }
 
   const result = await crypto.subtle.decrypt(
@@ -157,7 +157,7 @@ export async function verifyTEOS(teos: TEOS): Promise<boolean> {
   const isSignatureValid = await verifySignature(
     publicKey,
     hash.buffer,
-    teos.envelope.auth.signature,
+    teos.envelope.auth.signature.buffer,
   );
 
   return isSignatureValid;
