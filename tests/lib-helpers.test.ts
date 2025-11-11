@@ -94,7 +94,7 @@ describe('lib helpers', () => {
     const dto = getTEOSDto(teos);
 
     expect(dto.type).toBe('torln.teos.dto.v1');
-    expect(dto.id).toBe(teos.aad.objectId);
+    expect(dto.id).toBe(teos.aad.identifier);
     expect(dto.mode).toBe(teos.mode);
     expect(dto.ciphersuite).toBe(teos.envelope.suite);
     expect(dto.blob).toEqual(serialized);

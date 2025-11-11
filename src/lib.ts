@@ -98,7 +98,7 @@ export function deserializeTEOS(buffer: ArrayBuffer): TEOS {
 export function getTEOSDto(teos: TEOS): TEOSDto {
   return {
     type: 'torln.teos.dto.v1',
-    id: teos.aad.objectId,
+    id: teos.aad.identifier,
     mode: teos.mode,
     ciphersuite: teos.envelope.suite,
     blob: serializeTEOS(teos),

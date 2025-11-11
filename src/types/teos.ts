@@ -28,14 +28,17 @@ export interface MLS_TEOS extends BaseTEOS {
 /**
  * Additional Authenticated Data
  */
-export interface AAD {
+export interface AAD extends AADPayload {
+  identifier: string;
+  timestamp: number;
+}
+
+export interface AADPayload {
   groupId: string;
   channelId?: string | null;
-  objectId: string;
   epochId: number;
   senderClientId: string;
   messageSequence: number;
-  timestamp: number;
 }
 
 export type Envelope = PSKEnvelope | MLSEnvelope;

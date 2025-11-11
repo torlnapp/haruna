@@ -9,7 +9,7 @@ import {
   version,
 } from './lib';
 import type {
-  AAD,
+  AADPayload,
   BaseTEOS,
   EnvelopeAuth,
   MLS_TEOS,
@@ -20,7 +20,7 @@ import type {
 } from './types/teos';
 
 async function createBaseTEOS(
-  aad: AAD,
+  aad: AADPayload,
   aesKey: CryptoKey,
   data: ArrayBuffer,
 ): Promise<BaseTEOS> {
@@ -39,7 +39,11 @@ async function createBaseTEOS(
     type: 'torln.teos.v1',
     version,
     algorithm: 'AES-GCM',
-    aad,
+    aad: {
+      identifier: crypto.randomUUID(),
+      timestamp: Date.now(),
+      ...aad,
+    },
     nonce,
     tag,
     ciphertext,
@@ -49,7 +53,7 @@ async function createBaseTEOS(
 }
 
 export async function createPskTEOS(
-  aad: AAD,
+  aad: AADPayload,
   aesKey: CryptoKey,
   senderKeyPair: CryptoKeyPair,
   data: ArrayBuffer,
@@ -82,7 +86,7 @@ export async function createPskTEOS(
 }
 
 export async function createMlsTEOS(
-  aad: AAD,
+  aad: AADPayload,
   aesKey: CryptoKey,
   senderKeyPair: CryptoKeyPair,
   data: ArrayBuffer,
