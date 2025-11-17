@@ -1,56 +1,8 @@
 import { decode, encode } from '@msgpack/msgpack';
 import canonicalize from 'canonicalize';
-import packageJson from '../package.json';
-import type { TEOSDto } from './types/dto';
-import type { BaseTEOS, TEOS } from './types/teos';
-import { convertToTightUint8Arrays } from './utils';
-
-export const version = packageJson.version;
-
-export function generateNonce(): Uint8Array<ArrayBuffer> {
-  const nonce = new Uint8Array(12);
-  crypto.getRandomValues(nonce);
-
-  return nonce;
-}
-
-export function processCiphertext(payload: ArrayBuffer) {
-  const payloadUint8 = new Uint8Array(payload);
-  const tagLength = 16;
-  const ciphertext = payloadUint8.slice(0, payloadUint8.length - tagLength);
-  const tag = payloadUint8.slice(payloadUint8.length - tagLength);
-
-  return { ciphertext, tag };
-}
-
-export async function generateSignature(
-  privateKey: CryptoKey,
-  data: ArrayBuffer,
-) {
-  const signature = await crypto.subtle.sign(
-    { name: 'Ed25519' },
-    privateKey,
-    data,
-  );
-
-  return new Uint8Array(signature);
-}
-
-export async function verifySignature(
-  publicKey: CryptoKey,
-  data: ArrayBuffer,
-  signature: ArrayBuffer,
-) {
-  if (signature.byteLength !== 64) {
-    throw new Error(
-      '[TEOS] Invalid signature length. Expected 64 bytes. Got ' +
-        signature.byteLength +
-        ' bytes.',
-    );
-  }
-
-  return crypto.subtle.verify({ name: 'Ed25519' }, publicKey, signature, data);
-}
+import type { TEOSDto } from '../types/dto';
+import type { BaseTEOS, TEOS } from '../types/teos';
+import { convertToTightUint8Arrays } from '../utils/array';
 
 export async function generateBaseTEOSHash(payload: TEOS | BaseTEOS) {
   const data: BaseTEOS = {

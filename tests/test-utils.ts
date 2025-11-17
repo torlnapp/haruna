@@ -1,13 +1,11 @@
 import { encode } from '@msgpack/msgpack';
-import type { AAD } from '../src/types/teos';
+import type { AADPayload } from '../src/types/teos';
 
-export const defaultAAD: AAD = {
+export const defaultAAD: AADPayload = {
   groupId: 'group-123',
   epochId: 42,
   senderClientId: 'client-7',
   messageSequence: 3,
-  timestamp: Math.floor(Date.now() / 1000),
-  objectId: 'object-abc',
   channelId: 'channel-1',
 };
 
@@ -22,6 +20,7 @@ export const encodePayload = (value: unknown): ArrayBuffer => {
 export async function createCryptoContext(): Promise<{
   aesKey: CryptoKey;
   senderKeyPair: CryptoKeyPair;
+  pskBytes: ArrayBuffer;
 }> {
   const aesKey = await crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
@@ -38,8 +37,15 @@ export async function createCryptoContext(): Promise<{
     throw new Error('Failed to generate Ed25519 key pair');
   }
 
+  const pskSeed = crypto.getRandomValues(new Uint8Array(32));
+  const pskBytes = pskSeed.buffer.slice(
+    pskSeed.byteOffset,
+    pskSeed.byteOffset + pskSeed.byteLength,
+  );
+
   return {
     aesKey,
     senderKeyPair: ed25519Key,
+    pskBytes,
   };
 }

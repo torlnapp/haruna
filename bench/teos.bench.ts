@@ -1,17 +1,16 @@
 import os from 'node:os';
 import { encode } from '@msgpack/msgpack';
 import { Bench } from 'tinybench';
-import { deserializeTEOS, serializeTEOS } from '../src/lib';
-import { createMlsTEOS, createPskTEOS, extractTEOS } from '../src/main';
-import type { AAD } from '../src/types/teos';
+import { deserializeTEOS, serializeTEOS } from '../src/lib/teos';
+import { createMlsTEOS, extractTEOS } from '../src/mls';
+import { createPskTEOS, extractPskTEOS } from '../src/psk';
+import type { AADPayload } from '../src/types/teos';
 
-const defaultAAD: AAD = {
+const defaultAAD: AADPayload = {
   groupId: 'bench-group',
   epochId: 1,
   senderClientId: 'bench-client',
   messageSequence: 1,
-  timestamp: Math.floor(Date.now() / 1000),
-  objectId: 'bench-object',
   channelId: 'bench-channel',
 };
 
@@ -29,6 +28,7 @@ const toArrayBuffer = (view: Uint8Array<ArrayBuffer>) =>
 async function createCryptoContext(): Promise<{
   aesKey: CryptoKey;
   senderKeyPair: CryptoKeyPair;
+  pskBytes: ArrayBuffer;
 }> {
   const aesKey = await crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
@@ -45,25 +45,39 @@ async function createCryptoContext(): Promise<{
     throw new Error('[bench] Failed to create Ed25519 key pair');
   }
 
-  return { aesKey, senderKeyPair: ed25519 };
+  const pskArray = crypto.getRandomValues(new Uint8Array(32));
+  const pskBytes = pskArray.buffer.slice(
+    pskArray.byteOffset,
+    pskArray.byteOffset + pskArray.byteLength,
+  );
+
+  return { aesKey, senderKeyPair: ed25519, pskBytes };
 }
 
 async function main() {
-  const { aesKey, senderKeyPair } = await createCryptoContext();
+  const { aesKey, senderKeyPair, pskBytes } = await createCryptoContext();
   const payload = encodePayload({
     hello: 'world',
     count: 42,
     flags: [true, false, true],
   });
 
-  const referenceTEOS = await createPskTEOS(
+  const referenceMlsTEOS = await createMlsTEOS(
     defaultAAD,
     aesKey,
     senderKeyPair,
     payload,
   );
-  const serialized = serializeTEOS(referenceTEOS);
-  const serializedBuffer = toArrayBuffer(serialized);
+
+  const referencePskTEOS = await createPskTEOS(
+    defaultAAD,
+    pskBytes,
+    senderKeyPair,
+    payload,
+  );
+
+  const serializedMls = serializeTEOS(referenceMlsTEOS);
+  const serializedMlsBuffer = toArrayBuffer(serializedMls);
 
   const bench = new Bench({
     name: 'TEOS Benchmarks',
@@ -73,45 +87,58 @@ async function main() {
 
   bench
     .add('createPskTEOS', async () => {
-      await createPskTEOS(defaultAAD, aesKey, senderKeyPair, payload);
+      await createPskTEOS(defaultAAD, pskBytes, senderKeyPair, payload);
     })
     .add('createMlsTEOS', async () => {
       await createMlsTEOS(defaultAAD, aesKey, senderKeyPair, payload);
     })
-    .add('extractTEOS', async () => {
-      await extractTEOS(referenceTEOS, aesKey, senderKeyPair.publicKey);
+    .add('extractMlsTEOS', async () => {
+      await extractTEOS(referenceMlsTEOS, aesKey, senderKeyPair.publicKey);
+    })
+    .add('extractPskTEOS', async () => {
+      await extractPskTEOS(referencePskTEOS, pskBytes, senderKeyPair.publicKey);
     })
     .add('deserializeTEOS', () => {
-      deserializeTEOS(serializedBuffer);
+      deserializeTEOS(serializedMlsBuffer);
     });
 
   await bench.run();
 
-  const formatMs = (value?: number) =>
-    value === undefined ? 'n/a' : (value * 1_000).toFixed(3);
+  const formatMs = (value?: number | null) =>
+    value === undefined || value === null ? 'n/a' : (value * 1_000).toFixed(3);
 
   console.log('=== TEOS Benchmark Results ===');
   console.table(
     bench.tasks.map((task) => {
       const result = task.result;
+      const throughputMean = result?.throughput?.mean ?? null;
+      const latencyStats = result?.latency ?? null;
       return {
         Task: task.name,
-        'ops/sec': result ? result.throughput.mean.toFixed(2) : 'n/a',
-        'avg (ms)': result ? formatMs(result.latency.mean) : 'n/a',
-        'p75 (ms)': result ? formatMs(result.latency.p75) : 'n/a',
-        'p99 (ms)': result ? formatMs(result.latency.p99) : 'n/a',
-        samples: result?.latency.samples.length ?? 0,
+        'ops/sec':
+          typeof throughputMean === 'number'
+            ? throughputMean.toFixed(2)
+            : 'n/a',
+        'avg (ms)': formatMs(latencyStats?.mean ?? null),
+        'p75 (ms)': formatMs(latencyStats?.p75 ?? null),
+        'p99 (ms)': formatMs(latencyStats?.p99 ?? null),
+        samples: latencyStats?.samples.length ?? 0,
+        error: result?.error?.message ?? 'none',
       };
     }),
   );
+
+  const cpus = os.cpus();
+  const cpuModel = cpus.length > 0 ? cpus[0]?.model : 'unknown';
+  const cpuCount = cpus.length > 0 ? cpus.length : 'unknown';
 
   console.log('=== Device Info ===');
   console.table({
     platform: os.platform(),
     release: os.release(),
     arch: os.arch(),
-    cpu: os.cpus().map((cpu) => cpu.model)[0],
-    cpuCount: os.cpus().length,
+    cpu: cpuModel,
+    cpuCount,
     totalMemory: `${(os.totalmem() / 1024 ** 3).toFixed(2)} GB`,
     runtime: `${bench.runtime} ${bench.runtimeVersion}`,
   });

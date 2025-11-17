@@ -1,14 +1,8 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import {
-  deserializeTEOS,
-  generateNonce,
-  generateSignature,
-  getTEOSDto,
-  processCiphertext,
-  serializeTEOS,
-  verifySignature,
-} from '../src/lib';
-import { createPskTEOS } from '../src/main';
+import { generateNonce, processCiphertext } from '../src/lib/crypto';
+import { generateSignature, verifySignature } from '../src/lib/signature';
+import { deserializeTEOS, getTEOSDto, serializeTEOS } from '../src/lib/teos';
+import { createPskTEOS } from '../src/psk';
 import {
   defaultAAD as aad,
   createCryptoContext,
@@ -17,12 +11,13 @@ import {
 
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
+let pskBytes: ArrayBuffer;
 
 const toArrayBuffer = (view: Uint8Array<ArrayBuffer>) =>
   view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
 
 beforeAll(async () => {
-  ({ aesKey, senderKeyPair } = await createCryptoContext());
+  ({ aesKey, senderKeyPair, pskBytes } = await createCryptoContext());
 });
 
 describe('lib helpers', () => {
@@ -70,7 +65,7 @@ describe('lib helpers', () => {
   test('serializeTEOS and deserializeTEOS round-trip the payload', async () => {
     const teos = await createPskTEOS(
       aad,
-      aesKey,
+      pskBytes,
       senderKeyPair,
       encodePayload({ foo: 'bar' }),
     );
@@ -85,7 +80,7 @@ describe('lib helpers', () => {
   test('getTEOSDto mirrors TEOS metadata', async () => {
     const teos = await createPskTEOS(
       aad,
-      aesKey,
+      pskBytes,
       senderKeyPair,
       encodePayload({ hello: 'world' }),
     );

@@ -51,9 +51,8 @@ export interface EnvelopeAuth {
 export interface PSKEnvelope {
   suite: string;
   auth: EnvelopeAuth;
-  pskId: string;
+  pskGeneration: number;
   expiresAt?: number | null;
-  pskGeneration?: number | null;
 }
 
 export interface MLSEnvelope {

@@ -1,12 +1,10 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { generateBaseTEOSHash, verifySignature } from '../src/lib';
-import {
-  createMlsTEOS,
-  createPskTEOS,
-  extractTEOS,
-  verifyTEOS,
-} from '../src/main';
+import { verifySignature } from '../src/lib/signature';
+import { generateBaseTEOSHash } from '../src/lib/teos';
+import { createMlsTEOS, extractTEOS } from '../src/mls';
+import { createPskTEOS, extractPskTEOS } from '../src/psk';
 import type { PSK_TEOS } from '../src/types/teos';
+import { verifyTEOS } from '../src/utils/teos';
 import {
   defaultAAD as aad,
   createCryptoContext,
@@ -15,9 +13,10 @@ import {
 
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
+let pskBytes: ArrayBuffer;
 
 beforeAll(async () => {
-  ({ aesKey, senderKeyPair } = await createCryptoContext());
+  ({ aesKey, senderKeyPair, pskBytes } = await createCryptoContext());
 });
 
 describe('TEOS flows', () => {
@@ -30,7 +29,7 @@ describe('TEOS flows', () => {
 
     const teos = await createPskTEOS(
       aad,
-      aesKey,
+      pskBytes,
       senderKeyPair,
       encodePayload(original),
     );
@@ -52,16 +51,15 @@ describe('TEOS flows', () => {
     expect(signatureValid).toBe(true);
 
     expect(teos.mode).toBe('psk');
-    expect('pskId' in teos.envelope ? teos.envelope.pskId : '').toBe(
-      'your-psk-id',
-    );
+    expect(teos.envelope.suite).toBe('PSK+AES-256-GCM');
+    expect(teos.envelope.pskGeneration).toBe(1);
     expect(teos.nonce.length).toBe(12);
     expect(teos.tag.length).toBe(16);
     expect(teos.ciphertext.length).toBeGreaterThan(0);
 
-    const recovered = await extractTEOS<typeof original>(
+    const recovered = await extractPskTEOS<typeof original>(
       teos,
-      aesKey,
+      pskBytes,
       senderKeyPair.publicKey,
     );
     expect(recovered).toEqual(original);
@@ -101,7 +99,7 @@ describe('TEOS flows', () => {
   test('verifyTEOS reports valid and invalid signatures', async () => {
     const teos = await createPskTEOS(
       aad,
-      aesKey,
+      pskBytes,
       senderKeyPair,
       encodePayload({ payload: 'data' }),
     );
@@ -132,7 +130,7 @@ describe('TEOS flows', () => {
   test('extractTEOS rejects tampered signatures', async () => {
     const teos = await createPskTEOS(
       aad,
-      aesKey,
+      pskBytes,
       senderKeyPair,
       encodePayload({ compromised: true }),
     );
@@ -156,7 +154,7 @@ describe('TEOS flows', () => {
     };
 
     await expect(
-      extractTEOS(tampered, aesKey, senderKeyPair.publicKey),
+      extractPskTEOS(tampered, pskBytes, senderKeyPair.publicKey),
     ).rejects.toThrow('Invalid TEOS signature');
   });
 });
