@@ -66,7 +66,7 @@ describe('lib helpers', () => {
     const teos = await createPskTEOS(
       aad,
       pskBytes,
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encodePayload({ foo: 'bar' }),
     );
 
@@ -81,7 +81,7 @@ describe('lib helpers', () => {
     const teos = await createPskTEOS(
       aad,
       pskBytes,
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encodePayload({ hello: 'world' }),
     );
 

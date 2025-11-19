@@ -8,19 +8,18 @@ import type {
   MLSEnvelope,
   TEOS,
 } from './types/teos';
-import { createBaseMlsTEOS, verifyTEOS } from './utils/teos';
+import { createBaseMlsTEOS } from './utils/teos';
 
 export async function createMlsTEOS(
   aad: AADPayload,
-  senderKeyPair: CryptoKeyPair,
+  signerPrivateKey: CryptoKey,
   data: ArrayBuffer,
 ): Promise<MLS_TEOS> {
   const identifier = crypto.randomUUID();
   const base = await createBaseMlsTEOS(identifier, aad, data);
   const hash = await generateBaseTEOSHash(base);
   const auth: EnvelopeAuth = {
-    publicKey: await crypto.subtle.exportKey('jwk', senderKeyPair.publicKey),
-    signature: await generateSignature(senderKeyPair.privateKey, hash.buffer),
+    signature: await generateSignature(signerPrivateKey, hash.buffer),
   };
 
   const envelope: MLSEnvelope = {
@@ -34,18 +33,13 @@ export async function createMlsTEOS(
     envelope,
   };
 
-  const isValid = await verifyTEOS(teos);
-  if (!isValid) {
-    throw new Error('[TEOS] Generated MLS TEOS signature is invalid');
-  }
-
   return teos;
 }
 
 export async function extractTEOS<T>(
   payload: TEOS | ArrayBuffer,
   aesKey: CryptoKey,
-  publicKey: CryptoKey,
+  signerPublicKey: CryptoKey,
 ): Promise<T> {
   if (payload instanceof ArrayBuffer) {
     payload = deserializeTEOS(payload);
@@ -53,7 +47,7 @@ export async function extractTEOS<T>(
 
   const hash = await generateBaseTEOSHash(payload);
   const isValid = await verifySignature(
-    publicKey,
+    signerPublicKey,
     hash.buffer,
     payload.envelope.auth.signature.buffer,
   );

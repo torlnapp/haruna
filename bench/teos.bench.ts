@@ -1,7 +1,6 @@
 import os from 'node:os';
 import { encode } from '@msgpack/msgpack';
 import { Bench } from 'tinybench';
-import { deserializeTEOS, serializeTEOS } from '../src/lib/teos';
 import { createMlsTEOS, extractTEOS } from '../src/mls';
 import { createPskTEOS, extractPskTEOS } from '../src/psk';
 import type { AADPayload } from '../src/types/teos';
@@ -37,9 +36,6 @@ const encryptPayloadForMls = async (
     plaintext,
   );
 };
-
-const toArrayBuffer = (view: Uint8Array<ArrayBuffer>) =>
-  view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
 
 async function createCryptoContext(): Promise<{
   aesKey: CryptoKey;
@@ -81,19 +77,16 @@ async function main() {
 
   const referenceMlsTEOS = await createMlsTEOS(
     defaultAAD,
-    senderKeyPair,
+    senderKeyPair.privateKey,
     mlsCiphertext,
   );
 
   const referencePskTEOS = await createPskTEOS(
     defaultAAD,
     pskBytes,
-    senderKeyPair,
+    senderKeyPair.privateKey,
     payload,
   );
-
-  const serializedMls = serializeTEOS(referenceMlsTEOS);
-  const serializedMlsBuffer = toArrayBuffer(serializedMls);
 
   const bench = new Bench({
     name: 'TEOS Benchmarks',
@@ -103,20 +96,22 @@ async function main() {
 
   bench
     .add('createPskTEOS', async () => {
-      await createPskTEOS(defaultAAD, pskBytes, senderKeyPair, payload);
+      await createPskTEOS(
+        defaultAAD,
+        pskBytes,
+        senderKeyPair.privateKey,
+        payload,
+      );
     })
     .add('createMlsTEOS', async () => {
       const ciphertext = await encryptPayloadForMls(aesKey, payload);
-      await createMlsTEOS(defaultAAD, senderKeyPair, ciphertext);
+      await createMlsTEOS(defaultAAD, senderKeyPair.privateKey, ciphertext);
     })
     .add('extractMlsTEOS', async () => {
       await extractTEOS(referenceMlsTEOS, aesKey, senderKeyPair.publicKey);
     })
     .add('extractPskTEOS', async () => {
       await extractPskTEOS(referencePskTEOS, pskBytes, senderKeyPair.publicKey);
-    })
-    .add('deserializeTEOS', () => {
-      deserializeTEOS(serializedMlsBuffer);
     });
 
   await bench.run();

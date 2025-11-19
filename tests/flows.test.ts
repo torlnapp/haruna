@@ -15,9 +15,14 @@ import {
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
 let pskBytes: ArrayBuffer;
+let authorPublicJwk: JsonWebKey;
 
 beforeAll(async () => {
   ({ aesKey, senderKeyPair, pskBytes } = await createCryptoContext());
+  authorPublicJwk = await crypto.subtle.exportKey(
+    'jwk',
+    senderKeyPair.publicKey,
+  );
 });
 
 describe('TEOS flows', () => {
@@ -31,7 +36,7 @@ describe('TEOS flows', () => {
     const teos = await createPskTEOS(
       aad,
       pskBytes,
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encodePayload(original),
     );
 
@@ -73,7 +78,7 @@ describe('TEOS flows', () => {
 
     const teos = await createMlsTEOS(
       { ...aad, channelId: null },
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encryptedPayload,
     );
 
@@ -102,11 +107,11 @@ describe('TEOS flows', () => {
     const teos = await createPskTEOS(
       aad,
       pskBytes,
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encodePayload({ payload: 'data' }),
     );
 
-    await expect(verifyTEOS(teos)).resolves.toBe(true);
+    await expect(verifyTEOS(teos, authorPublicJwk)).resolves.toBe(true);
 
     const tamperedSignature = new Uint8Array(teos.envelope.auth.signature);
     const firstByte = tamperedSignature.at(0);
@@ -126,14 +131,16 @@ describe('TEOS flows', () => {
       },
     };
 
-    await expect(verifyTEOS(tamperedTeos)).resolves.toBe(false);
+    await expect(verifyTEOS(tamperedTeos, authorPublicJwk)).resolves.toBe(
+      false,
+    );
   });
 
   test('extractTEOS rejects tampered signatures', async () => {
     const teos = await createPskTEOS(
       aad,
       pskBytes,
-      senderKeyPair,
+      senderKeyPair.privateKey,
       encodePayload({ compromised: true }),
     );
 

@@ -62,11 +62,14 @@ export async function createBaseMlsTEOS(
   return baseResult;
 }
 
-export async function verifyTEOS(teos: TEOS): Promise<boolean> {
+export async function verifyTEOS(
+  teos: TEOS,
+  authorPublicKey: globalThis.JsonWebKey,
+): Promise<boolean> {
   const hash = await generateBaseTEOSHash(teos);
   const publicKey = await crypto.subtle.importKey(
     'jwk',
-    teos.envelope.auth.publicKey,
+    authorPublicKey,
     { name: 'Ed25519' },
     false,
     ['verify'],

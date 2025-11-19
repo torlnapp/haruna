@@ -44,7 +44,6 @@ export interface AADPayload {
 export type Envelope = PSKEnvelope | MLSEnvelope;
 
 export interface EnvelopeAuth {
-  publicKey: globalThis.JsonWebKey;
   signature: Uint8Array<ArrayBuffer>;
 }
 
