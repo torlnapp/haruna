@@ -10,7 +10,7 @@ const defaultAAD: AADPayload = {
   epochId: 1,
   senderClientId: 'bench-client',
   messageSequence: 1,
-  scopeId: 'bench-channel',
+  scopes: ['bench-scope1'],
 };
 
 const encodePayload = (value: unknown): ArrayBuffer => {

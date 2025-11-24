@@ -35,7 +35,7 @@ export interface AAD extends AADPayload {
 
 export interface AADPayload {
   contextId: string;
-  scopeId?: string;
+  scopes: Array<string>;
   epochId: number;
   senderClientId: string;
   messageSequence: number;

@@ -6,7 +6,7 @@ export const defaultAAD: AADPayload = {
   epochId: 42,
   senderClientId: 'client-7',
   messageSequence: 3,
-  scopeId: 'channel-1',
+  scopes: ['scope1'],
 };
 
 export const encodePayload = (value: unknown): ArrayBuffer => {
