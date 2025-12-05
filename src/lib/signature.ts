@@ -1,6 +1,6 @@
 export async function generateSignature(
   privateKey: CryptoKey,
-  data: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
 ) {
   const signature = await crypto.subtle.sign(
     { name: 'Ed25519' },
@@ -13,8 +13,8 @@ export async function generateSignature(
 
 export async function verifySignature(
   publicKey: CryptoKey,
-  data: ArrayBuffer,
-  signature: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
+  signature: Uint8Array<ArrayBuffer>,
 ) {
   if (signature.byteLength !== 64) {
     throw new Error(

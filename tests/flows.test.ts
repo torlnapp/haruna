@@ -14,7 +14,7 @@ import {
 
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
-let pskBytes: ArrayBuffer;
+let pskBytes: Uint8Array<ArrayBuffer>;
 let authorPublicJwk: JsonWebKey;
 
 beforeAll(async () => {
@@ -51,8 +51,8 @@ describe('TEOS flows', () => {
 
     const signatureValid = await verifySignature(
       senderKeyPair.publicKey,
-      hash.buffer,
-      teos.envelope.auth.signature.buffer,
+      hash,
+      teos.envelope.auth.signature,
     );
     expect(signatureValid).toBe(true);
 
@@ -85,8 +85,8 @@ describe('TEOS flows', () => {
     const hash = await generateBaseTEOSHash(teos);
     const signatureValid = await verifySignature(
       senderKeyPair.publicKey,
-      hash.buffer,
-      teos.envelope.auth.signature.buffer,
+      hash,
+      teos.envelope.auth.signature,
     );
     expect(signatureValid).toBe(true);
 

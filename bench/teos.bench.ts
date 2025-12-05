@@ -13,21 +13,16 @@ const defaultAAD: AADPayload = {
   scopes: ['bench-scope1'],
 };
 
-const encodePayload = (value: unknown): ArrayBuffer => {
-  const encoded = new Uint8Array(encode(value));
-  return encoded.buffer.slice(
-    encoded.byteOffset,
-    encoded.byteOffset + encoded.byteLength,
-  );
+const encodePayload = (value: unknown): Uint8Array<ArrayBuffer> => {
+  return new Uint8Array(encode(value));
 };
 
 const encryptPayloadForMls = async (
   key: CryptoKey,
-  plaintext: ArrayBuffer,
-): Promise<ArrayBuffer> => {
-  // MLS envelopes expect ciphertext + tag generated with a zero IV.
+  plaintext: Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> => {
   const iv = new Uint8Array(12);
-  return crypto.subtle.encrypt(
+  const result = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
       iv,
@@ -35,12 +30,14 @@ const encryptPayloadForMls = async (
     key,
     plaintext,
   );
+
+  return new Uint8Array(result);
 };
 
 async function createCryptoContext(): Promise<{
   aesKey: CryptoKey;
   senderKeyPair: CryptoKeyPair;
-  pskBytes: ArrayBuffer;
+  pskBytes: Uint8Array<ArrayBuffer>;
 }> {
   const aesKey = await crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
@@ -58,10 +55,7 @@ async function createCryptoContext(): Promise<{
   }
 
   const pskArray = crypto.getRandomValues(new Uint8Array(32));
-  const pskBytes = pskArray.buffer.slice(
-    pskArray.byteOffset,
-    pskArray.byteOffset + pskArray.byteLength,
-  );
+  const pskBytes = new Uint8Array(pskArray);
 
   return { aesKey, senderKeyPair: ed25519, pskBytes };
 }

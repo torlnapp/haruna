@@ -13,13 +13,13 @@ import { createBaseMlsTEOS } from './utils/teos';
 export async function createMlsTEOS(
   aad: AADPayload,
   signerPrivateKey: CryptoKey,
-  data: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
 ): Promise<MLS_TEOS> {
   const identifier = crypto.randomUUID();
   const base = await createBaseMlsTEOS(identifier, aad, data);
   const hash = await generateBaseTEOSHash(base);
   const auth: EnvelopeAuth = {
-    signature: await generateSignature(signerPrivateKey, hash.buffer),
+    signature: await generateSignature(signerPrivateKey, hash),
   };
 
   const envelope: MLSEnvelope = {
@@ -37,19 +37,19 @@ export async function createMlsTEOS(
 }
 
 export async function extractTEOS<T>(
-  payload: TEOS | ArrayBuffer,
+  payload: TEOS | Uint8Array<ArrayBuffer>,
   aesKey: CryptoKey,
   signerPublicKey: CryptoKey,
 ): Promise<T> {
-  if (payload instanceof ArrayBuffer) {
+  if (payload instanceof Uint8Array) {
     payload = deserializeTEOS(payload);
   }
 
   const hash = await generateBaseTEOSHash(payload);
   const isValid = await verifySignature(
     signerPublicKey,
-    hash.buffer,
-    payload.envelope.auth.signature.buffer,
+    hash,
+    payload.envelope.auth.signature,
   );
   if (!isValid) {
     throw new Error('[TEOS] Invalid TEOS signature');

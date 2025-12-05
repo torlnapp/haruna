@@ -21,7 +21,7 @@ interface PskAADParams {
 
 async function derivePskCryptoKey(
   aad: PskAADParams,
-  pskBytes: ArrayBuffer,
+  pskBytes: Uint8Array<ArrayBuffer>,
 ): Promise<CryptoKey> {
   const hkdfBase = await crypto.subtle.importKey(
     'raw',
@@ -65,9 +65,9 @@ async function derivePskCryptoKey(
 
 export async function createPskTEOS(
   aad: AADPayload,
-  pskBytes: ArrayBuffer,
+  pskBytes: Uint8Array<ArrayBuffer>,
   signerPrivateKey: CryptoKey,
-  data: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
 ): Promise<PSK_TEOS> {
   const identifier = crypto.randomUUID();
 
@@ -85,7 +85,7 @@ export async function createPskTEOS(
   const base = await createBasePskTEOS(identifier, aad, aesKey, data);
   const hash = await generateBaseTEOSHash(base);
   const auth: EnvelopeAuth = {
-    signature: await generateSignature(signerPrivateKey, hash.buffer),
+    signature: await generateSignature(signerPrivateKey, hash),
   };
 
   const envelope: PSKEnvelope = {
@@ -105,7 +105,7 @@ export async function createPskTEOS(
 
 export async function extractPskTEOS<T>(
   teos: PSK_TEOS,
-  pskBytes: ArrayBuffer,
+  pskBytes: Uint8Array<ArrayBuffer>,
   signerPublicKey: CryptoKey,
 ): Promise<T> {
   const aesKey = await derivePskCryptoKey(
@@ -123,8 +123,8 @@ export async function extractPskTEOS<T>(
   const hash = await generateBaseTEOSHash(teos);
   const isValid = await verifySignature(
     signerPublicKey,
-    hash.buffer,
-    teos.envelope.auth.signature.buffer,
+    hash,
+    teos.envelope.auth.signature,
   );
   if (!isValid) {
     throw new Error('[TEOS] Invalid TEOS signature');

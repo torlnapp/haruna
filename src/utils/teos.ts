@@ -8,7 +8,7 @@ export async function createBasePskTEOS(
   identifier: string,
   aad: AADPayload,
   aesKey: CryptoKey,
-  data: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
 ): Promise<BaseTEOS> {
   const nonce = generateNonce();
   const payload = await crypto.subtle.encrypt(
@@ -20,7 +20,7 @@ export async function createBasePskTEOS(
     data,
   );
 
-  const { ciphertext, tag } = processCiphertext(payload);
+  const { ciphertext, tag } = processCiphertext(new Uint8Array(payload));
   const baseResult: BaseTEOS = {
     type: 'torln.teos.v1',
     version,
@@ -41,7 +41,7 @@ export async function createBasePskTEOS(
 export async function createBaseMlsTEOS(
   identifier: string,
   aad: AADPayload,
-  data: ArrayBuffer,
+  data: Uint8Array<ArrayBuffer>,
 ): Promise<BaseTEOS> {
   const { ciphertext, tag } = processCiphertext(data);
 
@@ -77,8 +77,8 @@ export async function verifyTEOS(
 
   const isSignatureValid = await verifySignature(
     publicKey,
-    hash.buffer,
-    teos.envelope.auth.signature.buffer,
+    hash,
+    teos.envelope.auth.signature,
   );
 
   return isSignatureValid;

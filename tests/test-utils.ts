@@ -9,20 +9,16 @@ export const defaultAAD: AADPayload = {
   scopes: ['scope1'],
 };
 
-export const encodePayload = (value: unknown): ArrayBuffer => {
-  const encoded = new Uint8Array(encode(value));
-  return encoded.buffer.slice(
-    encoded.byteOffset,
-    encoded.byteOffset + encoded.byteLength,
-  );
+export const encodePayload = (value: unknown): Uint8Array<ArrayBuffer> => {
+  return new Uint8Array(encode(value));
 };
 
 export const encryptPayloadForMls = async (
   key: CryptoKey,
-  plaintext: ArrayBuffer,
-): Promise<ArrayBuffer> => {
+  plaintext: Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> => {
   const nonce = new Uint8Array(12);
-  return crypto.subtle.encrypt(
+  const result = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
       iv: nonce,
@@ -30,12 +26,14 @@ export const encryptPayloadForMls = async (
     key,
     plaintext,
   );
+
+  return new Uint8Array(result);
 };
 
 export async function createCryptoContext(): Promise<{
   aesKey: CryptoKey;
   senderKeyPair: CryptoKeyPair;
-  pskBytes: ArrayBuffer;
+  pskBytes: Uint8Array<ArrayBuffer>;
 }> {
   const aesKey = await crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
@@ -53,10 +51,7 @@ export async function createCryptoContext(): Promise<{
   }
 
   const pskSeed = crypto.getRandomValues(new Uint8Array(32));
-  const pskBytes = pskSeed.buffer.slice(
-    pskSeed.byteOffset,
-    pskSeed.byteOffset + pskSeed.byteLength,
-  );
+  const pskBytes = new Uint8Array(pskSeed);
 
   return {
     aesKey,

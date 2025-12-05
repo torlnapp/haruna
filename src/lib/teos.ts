@@ -34,7 +34,7 @@ export function serializeTEOS(teos: TEOS): Uint8Array<ArrayBuffer> {
   return new Uint8Array(encode(teos));
 }
 
-export function deserializeTEOS(buffer: ArrayBuffer): TEOS {
+export function deserializeTEOS(buffer: Uint8Array<ArrayBuffer>): TEOS {
   const data = convertToTightUint8Arrays(decode(buffer));
   if (
     typeof data === 'object' &&

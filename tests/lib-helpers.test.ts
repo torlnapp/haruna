@@ -11,10 +11,7 @@ import {
 
 let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
-let pskBytes: ArrayBuffer;
-
-const toArrayBuffer = (view: Uint8Array<ArrayBuffer>) =>
-  view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+let pskBytes: Uint8Array<ArrayBuffer>;
 
 beforeAll(async () => {
   ({ aesKey, senderKeyPair, pskBytes } = await createCryptoContext());
@@ -39,7 +36,7 @@ describe('lib helpers', () => {
       encodePayload({ sample: true }),
     );
 
-    const { ciphertext, tag } = processCiphertext(payload);
+    const { ciphertext, tag } = processCiphertext(new Uint8Array(payload));
     const totalLength = new Uint8Array(payload).length;
 
     expect(ciphertext.length + tag.length).toBe(totalLength);
@@ -48,7 +45,7 @@ describe('lib helpers', () => {
   });
 
   test('generateSignature output passes verifySignature', async () => {
-    const data = new TextEncoder().encode('sign me').buffer;
+    const data = new TextEncoder().encode('sign me');
     const signature = await generateSignature(senderKeyPair.privateKey, data);
 
     expect(signature).toBeInstanceOf(Uint8Array);
@@ -57,7 +54,7 @@ describe('lib helpers', () => {
     const valid = await verifySignature(
       senderKeyPair.publicKey,
       data,
-      signature.buffer,
+      signature,
     );
     expect(valid).toBe(true);
   });
@@ -73,7 +70,7 @@ describe('lib helpers', () => {
     const serialized = serializeTEOS(teos);
     expect(serialized).toBeInstanceOf(Uint8Array);
 
-    const parsed = deserializeTEOS(toArrayBuffer(serialized));
+    const parsed = deserializeTEOS(serialized);
     expect(parsed).toEqual(teos);
   });
 
