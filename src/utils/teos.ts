@@ -64,16 +64,21 @@ export async function createBaseMlsTEOS(
 
 export async function verifyTEOS(
   teos: TEOS,
-  authorPublicKey: globalThis.JsonWebKey,
+  authorPublicKey: globalThis.JsonWebKey | globalThis.CryptoKey,
 ): Promise<boolean> {
   const hash = await generateBaseTEOSHash(teos);
-  const publicKey = await crypto.subtle.importKey(
-    'jwk',
-    authorPublicKey,
-    { name: 'Ed25519' },
-    false,
-    ['verify'],
-  );
+  let publicKey: globalThis.CryptoKey;
+  if (authorPublicKey instanceof CryptoKey) {
+    publicKey = authorPublicKey;
+  } else {
+    publicKey = await crypto.subtle.importKey(
+      'jwk',
+      authorPublicKey,
+      { name: 'Ed25519' },
+      false,
+      ['verify'],
+    );
+  }
 
   const isSignatureValid = await verifySignature(
     publicKey,
