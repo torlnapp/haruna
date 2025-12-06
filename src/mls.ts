@@ -14,9 +14,10 @@ export async function createMlsTEOS(
   aad: AADPayload,
   signerPrivateKey: CryptoKey,
   data: Uint8Array<ArrayBuffer>,
+  nonce?: Uint8Array<ArrayBuffer>,
 ): Promise<MLS_TEOS> {
   const identifier = crypto.randomUUID();
-  const base = await createBaseMlsTEOS(identifier, aad, data);
+  const base = await createBaseMlsTEOS(identifier, aad, data, nonce);
   const hash = await generateBaseTEOSHash(base);
   const auth: EnvelopeAuth = {
     signature: await generateSignature(signerPrivateKey, hash),
@@ -61,7 +62,7 @@ export async function extractTEOS<T>(
       iv: payload.nonce,
     },
     aesKey,
-    new Uint8Array([...payload.ciphertext, ...payload.tag]).buffer,
+    new Uint8Array([...payload.ciphertext, ...payload.tag]),
   );
 
   return decode(result) as T;

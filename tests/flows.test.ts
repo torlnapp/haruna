@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
+import initOpenMls, { Group, Identity, Provider } from '@torlnapp/openmls-wasm';
 import { verifySignature } from '../src/lib/signature';
 import { generateBaseTEOSHash } from '../src/lib/teos';
 import { createMlsTEOS, extractTEOS } from '../src/mls';
@@ -12,16 +13,54 @@ import {
   encryptPayloadForMls,
 } from './test-utils';
 
-let aesKey: CryptoKey;
 let senderKeyPair: CryptoKeyPair;
 let pskBytes: Uint8Array<ArrayBuffer>;
 let authorPublicJwk: JsonWebKey;
+let mlsAesKey: CryptoKey;
+let aliceExportedMlsKey: Uint8Array;
+let bobExportedMlsKey: Uint8Array;
 
 beforeAll(async () => {
-  ({ aesKey, senderKeyPair, pskBytes } = await createCryptoContext());
+  ({ senderKeyPair, pskBytes } = await createCryptoContext());
   authorPublicJwk = await crypto.subtle.exportKey(
     'jwk',
     senderKeyPair.publicKey,
+  );
+
+  await initOpenMls();
+
+  const aliceProvider = new Provider();
+  const bobProvider = new Provider();
+
+  const alice = new Identity(aliceProvider, 'alice');
+  const bob = new Identity(bobProvider, 'bob');
+
+  const aliceGroup = Group.createNew(aliceProvider, alice, 'teos-group');
+  const bobKeyPackage = bob.getKeyPackage(bobProvider);
+
+  const addMsgs = aliceGroup.proposeAndCommitAdd(
+    aliceProvider,
+    alice,
+    bobKeyPackage,
+  );
+
+  aliceGroup.mergePendingCommit(aliceProvider);
+
+  const ratchetTree = aliceGroup.exportRatchetTree();
+  const bobGroup = Group.join(bobProvider, addMsgs.welcome, ratchetTree);
+
+  const label = 'teos_payload_key';
+  const context = new Uint8Array(32).fill(0x30);
+
+  aliceExportedMlsKey = aliceGroup.exportKey(aliceProvider, label, context, 32);
+  bobExportedMlsKey = bobGroup.exportKey(bobProvider, label, context, 32);
+
+  mlsAesKey = await crypto.subtle.importKey(
+    'raw',
+    new Uint8Array(aliceExportedMlsKey),
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
   );
 });
 
@@ -72,14 +111,39 @@ describe('TEOS flows', () => {
   });
 
   test('createTEOS (mls) produces MLS envelope and extractTEOS succeeds', async () => {
+    expect(aliceExportedMlsKey.length).toBe(32);
+    expect([...aliceExportedMlsKey]).toEqual([...bobExportedMlsKey]);
+
     const original = { status: 'ok', items: [1, 2, 3] };
     const encoded = encodePayload(original);
-    const encryptedPayload = await encryptPayloadForMls(aesKey, encoded);
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
+
+    const encryptedPayload = await encryptPayloadForMls(
+      mlsAesKey,
+      encoded,
+      nonce,
+    );
+
+    const manuallyDecrypted = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: nonce,
+      },
+      mlsAesKey,
+      encryptedPayload,
+    );
+    expect(new Uint8Array(manuallyDecrypted)).toEqual(encoded);
 
     const teos = await createMlsTEOS(
       aad,
       senderKeyPair.privateKey,
       encryptedPayload,
+      nonce,
+    );
+
+    expect(Array.from(teos.nonce)).toEqual(Array.from(nonce));
+    expect([...teos.ciphertext, ...teos.tag]).toEqual(
+      Array.from(encryptedPayload),
     );
 
     const hash = await generateBaseTEOSHash(teos);
@@ -97,7 +161,7 @@ describe('TEOS flows', () => {
 
     const recovered = await extractTEOS<typeof original>(
       teos,
-      aesKey,
+      mlsAesKey,
       senderKeyPair.publicKey,
     );
     expect(recovered).toEqual(original);

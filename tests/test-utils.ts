@@ -16,8 +16,8 @@ export const encodePayload = (value: unknown): Uint8Array<ArrayBuffer> => {
 export const encryptPayloadForMls = async (
   key: CryptoKey,
   plaintext: Uint8Array<ArrayBuffer>,
+  nonce: Uint8Array<ArrayBuffer>,
 ): Promise<Uint8Array<ArrayBuffer>> => {
-  const nonce = new Uint8Array(12);
   const result = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',

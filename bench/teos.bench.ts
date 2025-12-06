@@ -20,8 +20,8 @@ const encodePayload = (value: unknown): Uint8Array<ArrayBuffer> => {
 const encryptPayloadForMls = async (
   key: CryptoKey,
   plaintext: Uint8Array<ArrayBuffer>,
+  iv: Uint8Array<ArrayBuffer>,
 ): Promise<Uint8Array<ArrayBuffer>> => {
-  const iv = new Uint8Array(12);
   const result = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
@@ -67,12 +67,18 @@ async function main() {
     count: 42,
     flags: [true, false, true],
   });
-  const mlsCiphertext = await encryptPayloadForMls(aesKey, payload);
+  const initialNonce = crypto.getRandomValues(new Uint8Array(12));
+  const mlsCiphertext = await encryptPayloadForMls(
+    aesKey,
+    payload,
+    initialNonce,
+  );
 
   const referenceMlsTEOS = await createMlsTEOS(
     defaultAAD,
     senderKeyPair.privateKey,
     mlsCiphertext,
+    initialNonce,
   );
 
   const referencePskTEOS = await createPskTEOS(
@@ -98,8 +104,9 @@ async function main() {
       );
     })
     .add('createMlsTEOS', async () => {
-      const ciphertext = await encryptPayloadForMls(aesKey, payload);
-      await createMlsTEOS(defaultAAD, senderKeyPair.privateKey, ciphertext);
+      const nonce = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await encryptPayloadForMls(aesKey, payload, nonce);
+      await createMlsTEOS(defaultAAD, senderKeyPair.privateKey, ciphertext, nonce);
     })
     .add('extractMlsTEOS', async () => {
       await extractTEOS(referenceMlsTEOS, aesKey, senderKeyPair.publicKey);
