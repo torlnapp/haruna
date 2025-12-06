@@ -14,7 +14,7 @@ export async function createMlsTEOS(
   aad: AADPayload,
   signerPrivateKey: CryptoKey,
   data: Uint8Array<ArrayBuffer>,
-  nonce?: Uint8Array<ArrayBuffer>,
+  nonce: Uint8Array<ArrayBuffer>,
 ): Promise<MLS_TEOS> {
   const identifier = crypto.randomUUID();
   const base = await createBaseMlsTEOS(identifier, aad, data, nonce);

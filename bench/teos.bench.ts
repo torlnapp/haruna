@@ -106,7 +106,12 @@ async function main() {
     .add('createMlsTEOS', async () => {
       const nonce = crypto.getRandomValues(new Uint8Array(12));
       const ciphertext = await encryptPayloadForMls(aesKey, payload, nonce);
-      await createMlsTEOS(defaultAAD, senderKeyPair.privateKey, ciphertext, nonce);
+      await createMlsTEOS(
+        defaultAAD,
+        senderKeyPair.privateKey,
+        ciphertext,
+        nonce,
+      );
     })
     .add('extractMlsTEOS', async () => {
       await extractTEOS(referenceMlsTEOS, aesKey, senderKeyPair.publicKey);

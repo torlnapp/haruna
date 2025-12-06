@@ -42,7 +42,7 @@ export async function createBaseMlsTEOS(
   identifier: string,
   aad: AADPayload,
   data: Uint8Array<ArrayBuffer>,
-  nonce: Uint8Array<ArrayBuffer> = generateNonce(),
+  nonce: Uint8Array<ArrayBuffer>,
 ): Promise<BaseTEOS> {
   const { ciphertext, tag } = processCiphertext(data);
 
