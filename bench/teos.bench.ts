@@ -75,6 +75,7 @@ async function main() {
   );
 
   const referenceMlsTEOS = await createMlsTEOS(
+    'bench-mls-reference',
     defaultAAD,
     senderKeyPair.privateKey,
     mlsCiphertext,
@@ -107,6 +108,7 @@ async function main() {
       const nonce = crypto.getRandomValues(new Uint8Array(12));
       const ciphertext = await encryptPayloadForMls(aesKey, payload, nonce);
       await createMlsTEOS(
+        crypto.randomUUID(),
         defaultAAD,
         senderKeyPair.privateKey,
         ciphertext,

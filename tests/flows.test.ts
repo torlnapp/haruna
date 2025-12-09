@@ -1,5 +1,9 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import initOpenMls, { Group, Identity, Provider } from '@torlnapp/openmls-wasm';
+import initOpenMls, {
+  Group,
+  Identity,
+  Provider,
+} from '@torlnapp/torln-openmls-wasm';
 import { verifySignature } from '../src/lib/signature';
 import { generateBaseTEOSHash } from '../src/lib/teos';
 import { createMlsTEOS, extractTEOS } from '../src/mls';
@@ -52,8 +56,13 @@ beforeAll(async () => {
   const label = 'teos_payload_key';
   const context = new Uint8Array(32).fill(0x30);
 
-  aliceExportedMlsKey = aliceGroup.exportKey(aliceProvider, label, context, 32);
-  bobExportedMlsKey = bobGroup.exportKey(bobProvider, label, context, 32);
+  aliceExportedMlsKey = aliceGroup.exportSecret(
+    aliceProvider,
+    label,
+    context,
+    32,
+  );
+  bobExportedMlsKey = bobGroup.exportSecret(bobProvider, label, context, 32);
 
   mlsAesKey = await crypto.subtle.importKey(
     'raw',
@@ -117,6 +126,7 @@ describe('TEOS flows', () => {
     const original = { status: 'ok', items: [1, 2, 3] };
     const encoded = encodePayload(original);
     const nonce = crypto.getRandomValues(new Uint8Array(12));
+    const identifier = crypto.randomUUID();
 
     const encryptedPayload = await encryptPayloadForMls(
       mlsAesKey,
@@ -135,6 +145,7 @@ describe('TEOS flows', () => {
     expect(new Uint8Array(manuallyDecrypted)).toEqual(encoded);
 
     const teos = await createMlsTEOS(
+      identifier,
       aad,
       senderKeyPair.privateKey,
       encryptedPayload,
@@ -145,6 +156,7 @@ describe('TEOS flows', () => {
     expect([...teos.ciphertext, ...teos.tag]).toEqual(
       Array.from(encryptedPayload),
     );
+    expect(teos.aad.identifier).toBe(identifier);
 
     const hash = await generateBaseTEOSHash(teos);
     const signatureValid = await verifySignature(
